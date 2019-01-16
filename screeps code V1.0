@@ -1,0 +1,591 @@
+var miner_number = 1,
+    upgrader_number = 1,
+    warior_number = 1,
+    fixer_number = 1,
+    helper_number = 1,
+    carryer_number = 1,
+    miner_max_count = 3,
+    upgrader_max_count = 3,
+    warior_max_number = 0,
+    fixer_max_number = 2,
+    helper_max_number = 1,
+    carryer_max_number = 1,
+    cpu_avg = 0,
+    i = 1,
+    damaged_creep = false,
+    dropped_res = false,
+    tombs = false,
+    damaged_creep_id,
+    find_mins = false,
+    found_min,
+    support_spot_x = 3,
+    support_spot_y = 33,
+    exs_enengy = 0,
+    con_energy =0,
+    spawn_id = '5bfaab15d76a69564a2a2ada',
+    under_attack,
+    cur_repair,
+    cur_target_id,
+    cur_target_id2;
+var known_mins = ['H','O','U','L','K','Z','X','G','OH','ZK','UL','UH','UO','KH','KO','LH','ZO','GH','GO','energy'];
+function createname(import_name) {  //создание имени 
+    var export_name;
+    switch (import_name) {
+        case 'Miner':
+            if (miner_number > miner_max_count){miner_number = 1};
+            export_name = '' + import_name + miner_number 
+            miner_number == ++miner_number;
+            break;
+        case 'Upgrader':
+            if (upgrader_number > upgrader_max_count){upgrader_number = 1};
+            export_name = '' + import_name + upgrader_number 
+            upgrader_number == ++upgrader_number;
+            break;
+        case 'Warior':
+            if (warior_number > warior_max_number){warior_number = 1};
+            export_name = '' + import_name + warior_number 
+            warior_number == ++warior_number;
+            break;
+        case 'Fixer':
+            if (fixer_number > fixer_max_number){fixer_number = 1};
+            export_name = '' + import_name + fixer_number 
+            fixer_number == ++fixer_number;
+            break;
+        case 'Helper':
+            if (carryer_number > helper_max_number){carryer_number = 1};
+            export_name = '' + import_name + carryer_number 
+            carryer_number == ++carryer_number;
+            break;
+        case 'Carryer':
+            if (helper_number > carryer_max_number){helper_number = 1};
+            export_name = '' + import_name + helper_number 
+            helper_number == ++helper_number;
+            break;    
+    }
+    return export_name;
+}
+
+module.exports.loop = function () {  //каждый тик делать
+        var miner_count = 0, upgrader_count = 0, warior_count = 0, fixer_count = 0, helper_count = 0, carryer_count = 0,
+        extension_count = 0, exs_enengy = 0, con_energy = 0;
+        // console.log('-----new tick-----', Date().split('2018')[1].split('GMT')[0]);//часы
+        if (Game.time % 5 == 0) {
+            if (Game.getObjectById(spawn_id).pos.findClosestByRange(FIND_HOSTILE_CREEPS)) {
+                under_attack = true;
+            } else {under_attack = false}
+        }
+        if (Game.time % 10 == 0) { //проверка safe time
+             const safe_time = Game.getObjectById(spawn_id).room.controller.safeMode;
+             if (safe_time < 1000 || safe_time == undefined) {warior_max_number = 2}
+        }
+        var my_storage = Game.getObjectById(spawn_id).room.find(FIND_STRUCTURES, {filter: {structureType: STRUCTURE_STORAGE}});
+        // console.log(Game.getObjectById(spawn_id).room.energyCapacityAvailable);
+        var container_mass = Game.getObjectById(spawn_id).room.find(FIND_STRUCTURES, {filter: {structureType: STRUCTURE_CONTAINER}});
+        container_mass.sort((a,b) => a.store[RESOURCE_ENERGY] - b.store[RESOURCE_ENERGY]);
+        for (var con = 0; con < container_mass.length; con++) {
+            con_energy = con_energy + container_mass[con].store[RESOURCE_ENERGY];
+        }
+        var extensions_mass = Game.getObjectById(spawn_id).room.find(FIND_STRUCTURES, {filter: {structureType: STRUCTURE_EXTENSION}});
+        extensions_mass.sort((a,b) => a.energy - b.energy);
+        for (var exs = 0; exs < extensions_mass.length; exs++) {
+            exs_enengy = exs_enengy + extensions_mass[exs].energy;
+        }
+        var towers_mass = Game.getObjectById(spawn_id).room.find(FIND_STRUCTURES, {filter: {structureType: STRUCTURE_TOWER}});
+        extensions_mass.sort((a,b) => a.energy - b.energy);
+    for (var name in Game.creeps){  //перебор всех крипов
+        var creep = Game.creeps[name];
+            // console.log(extensions_mass[0].energy);
+        if (Game.time % 10 == 0 && creep.hits < creep.hitsMax && under_attack == false) {
+            damaged_creep = true;
+            damaged_creep_id = creep.id;
+            console.log('creep', damaged_creep_id, ' damaged');
+        }
+            
+        //Для майнеров
+        if (creep.name.indexOf('Miner') == 0) {  
+            var dest_mining = 0;
+            // if (creep.name.split('Miner')[1] % 3 == 0) {
+            //     dest_mining = 1;
+            // }
+            creep.memory.role = 'miner'; 
+            miner_count = ++miner_count;
+            if (creep.carry.energy == creep.carryCapacity && Game.spawns.Spawn1.energy == Game.spawns.Spawn1.energyCapacity) {
+                creep.memory.building_mode = true;
+            }   else if (creep.carry.energy == 0 || Game.spawns.Spawn1.energy < Game.spawns.Spawn1.energyCapacity) {
+                creep.memory.building_mode = false;
+            }
+            if (creep.carry.energy == 0) {creep.memory.stay = false}
+            //Добыча 
+            if (creep.carry.energy < creep.carryCapacity && creep.memory.building_mode == false && creep.memory.stay == false) {  
+                var sources = Game.rooms['E29S11'].find(FIND_SOURCES);
+                if (sources[dest_mining].energy == 'undefined') {console.log(creep.name);}
+                if(creep.harvest(sources[dest_mining]) == ERR_NOT_IN_RANGE || sources[dest_mining].energy == 0) {
+                    creep.moveTo(sources[dest_mining]);
+                }
+            //Добыча end 
+            //транспортировка
+            }   else {
+                //нести на спавн
+                if( creep.transfer(Game.spawns['Spawn1'], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE && creep.memory.building_mode == false && creep.memory.stay == false) {
+                    creep.moveTo(Game.spawns['Spawn1']);
+                }   else if (extensions_mass.length > 0 && creep.carry.energy >= 0 && extensions_mass[0].energy < extensions_mass[0].energyCapacity) {
+                        const range_1_str = creep.pos.findInRange(FIND_MY_STRUCTURES, 1);
+                        if  (range_1_str) {
+                            for (var y = 0; y < range_1_str.length;y++) {
+                                if (range_1_str[y].structureType == STRUCTURE_EXTENSION && range_1_str[y].energy < range_1_str[y].energyCapacity) {
+                                    creep.transfer(range_1_str[y], RESOURCE_ENERGY);
+                                }
+                            }
+                        }
+                        const target_near_ext = creep.pos.findClosestByRange(FIND_STRUCTURES,
+                            {filter: {structureType: STRUCTURE_EXTENSION}});
+                        if(target_near_ext && target_near_ext.store < target_near_ext.storeCapacity) {
+                                if(creep.transfer(target_near_ext) == ERR_NOT_IN_RANGE) {
+                                    creep.moveTo(target_near_ext);
+                                } 
+                        } else {
+                            if(creep.transfer(extensions_mass[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                                creep.moveTo(extensions_mass[0]);
+                            }
+                        }
+                }   else { 
+                //транспортировка end
+                //строительство
+                    if (creep.memory.building_mode = true) {
+                        const target = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+                        if(target) {
+                            if(creep.build(target) == ERR_NOT_IN_RANGE) {
+                                creep.moveTo(target);
+                            }   else {creep.build(target);
+                                creep.memory.stay = true;  //оставаться если начал ????
+                            }
+                        } else if (my_storage && my_storage[0].store[RESOURCE_ENERGY] < 900000) {
+                            if(creep.transfer(my_storage[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                                creep.moveTo(my_storage[0]);
+                            } 
+                        } else  if (con_energy < container_mass.length * 2000){ //складирование
+                            creep.say('✔');
+                            const target_near_cont = creep.pos.findClosestByRange(FIND_STRUCTURES,
+                                {filter: {structureType: STRUCTURE_CONTAINER}});
+                            if(target_near_cont && target_near_cont.store[RESOURCE_ENERGY] < target_near_cont.storeCapacity) {
+                                    if(creep.transfer(target_near_cont, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                                        creep.moveTo(target_near_cont);
+                                    } 
+                            } else {
+                                if (creep.transfer(container_mass[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                                    creep.moveTo(container_mass[0]);
+                                } 
+                            }
+                        }   else if (creep.carry.energy == creep.carryCapacity) { //если майнерам нечем заняться-идти к спавну или докопать до талого
+                            creep.moveTo(Game.spawns['Spawn1'])
+                        }   else { //додобывать
+                            var sources = creep.room.find(FIND_SOURCES);
+                            if(creep.harvest(sources[dest_mining]) == ERR_NOT_IN_RANGE || sources[dest_mining].energy == 0) {
+                                creep.moveTo(sources[dest_mining]);
+                            }
+                        }
+                    }                
+                }
+            }
+        }
+        //конец майнеров
+        //Для улучшателей
+        else if (creep.name.indexOf('Upgrader') == 0) {  
+                creep.memory.role = 'upgrader';
+                upgrader_count = ++upgrader_count;
+                var dest_upgr = 1;
+                var sources = Game.rooms['E29S11'].find(FIND_SOURCES);
+                if (creep.carry.energy == creep.carryCapacity) {
+                    creep.memory.upgrading_now = true;
+                }
+                if (creep.carry.energy == 0) {
+                    creep.memory.upgrading_now = false;
+                }
+                if (creep.carry.energy < creep.carryCapacity && creep.memory.upgrading_now == false) {
+                    var sources = Game.rooms['E29S11'].find(FIND_SOURCES);
+                    
+                    if (creep.harvest(sources[dest_upgr]) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(sources[dest_upgr])
+                    }
+                } else if (creep.memory.upgrading_now == true) {
+                    var controller = Game.rooms['E29S11'].controller;
+                    if (creep.upgradeController(controller) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(controller);
+                    }
+                }
+        }  
+        //Конец улучшателей
+        //воины
+        else if (creep.name.indexOf('Warior') == 0) {
+            creep.memory.role = 'warior';
+            warior_count = ++warior_count;
+            const target = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+                if(target) {
+                    if(creep.attack(target) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(target);
+                    }
+                } else {creep.moveTo(support_spot_x, support_spot_y)}
+        } 
+        //конец воинов
+        //починка
+        else if (creep.name.indexOf('Fixer') == 0) {
+            creep.memory.role = 'fixer';
+            var fixer_mode = 0;
+            if (creep.name.split('Fixer')[1] % 2 == 0) {
+                fixer_mode = 1;
+            }
+            fixer_count = ++fixer_count;
+            // console.log(creep.name);
+            if (creep.carry.energy == 0) {creep.memory.fixing = false;}
+            if (creep.carry.energy == creep.carryCapacity) {creep.memory.fixing = true;}
+            if (creep.memory.fixing == false) {
+                 var sources = creep.room.find(FIND_SOURCES);
+                    if (creep.harvest(sources[1]) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(sources[1])
+                    }
+            } else if (fixer_mode == 0){
+                creep.say('🔧'); //если в процессе починки
+                // const range_1_str = creep.pos.findInRange(FIND_STRUCTURES, { //найти hits - min
+                //     filter: object => object.hits < object.hitsMax 
+                // });
+                // console.log(range_1_str[0]);
+                // if  (range_1_str) {
+                //     for (var z = 0; z < range_1_str.length;z++) {
+                //         if (range_1_str[z].structureType == STRUCTURE_ROAD && range_1_str[z].hits < range_1_str[z].hitsMax) {
+                //             creep.repair(range_1_str[z]);
+                //         }
+                //     }
+                // }
+                //----------
+                if (Game.getObjectById(cur_target_id) && Game.getObjectById(cur_target_id).hits < Game.getObjectById(cur_target_id).hitsMax && creep.repair(Game.getObjectById(cur_target_id)) == OK) {
+                    if(creep.repair(Game.getObjectById(cur_target_id)) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(Game.getObjectById(cur_target_id));
+                    }
+                } else {
+                    const targets = Game.rooms['E29S11'].find(FIND_STRUCTURES, { //найти hits - min
+                        filter: object => object.hits < object.hitsMax 
+                    });
+                    targets.sort((a,b) => a.hits - b.hits);
+                    if (targets.length > 0) {cur_target_id = targets[0].id;}
+                    if(targets.length > 0 && targets[0].hits < 20000) {
+                        if(creep.repair(targets[0]) == ERR_NOT_IN_RANGE) {
+                             creep.moveTo(targets[0]);
+                            //  console.log('цель починки: ',cur_repair.pos,' ',cur_repair.hits,' hits' ); 
+                        } 
+                    } else {creep.moveTo(support_spot_x, support_spot_y)}
+                }
+            } else if (fixer_mode == 1) {
+                if (Game.getObjectById(cur_target_id2) && Game.getObjectById(cur_target_id2).hits < 30000 && creep.repair(Game.getObjectById(cur_target_id2)) == OK && Game.getObjectById(cur_target_id2).hits < Game.getObjectById(cur_target_id2).hitsMax) {
+                    creep.say('🔩');
+                    if(creep.repair(Game.getObjectById(cur_target_id2)) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(Game.getObjectById(cur_target_id2));
+                    }
+                } else {
+                    const targets = creep.room.find(FIND_STRUCTURES, {
+                        filter: object => object.hitsMax > 5000 && object.hits <30000 && object.hits < object.hitsMax /*&& object.hitsMax < 300000000*/
+                    });
+                    targets.sort((a,b) => a.hits - b.hits);
+                    if (targets.length > 0) {cur_target_id2 = targets[0].id}
+                    if(targets.length > 0 && targets[0].hits < 31000 /*&& towers_mass[0].energy <= 500*/ && targets[0].hits < targets[0].hitsMax) {
+                        creep.say('🔩');
+                        if(creep.repair(targets[0]) == ERR_NOT_IN_RANGE) {
+                            creep.moveTo(targets[0]);
+                        }
+                    } else {
+                        creep.moveTo(support_spot_x, support_spot_y);
+                    }
+                }
+            } 
+        } //конец починки
+        //помощники
+        else if (creep.name.indexOf('Helper') == 0) {
+            helper_count = ++helper_count;
+            creep.say('🔗');   
+            const energy_all = Game.getObjectById(spawn_id).energy + exs_enengy;
+            if (creep.carry.energy >= 50 && energy_all < Game.getObjectById(spawn_id).room.energyCapacityAvailable) {
+                if (Game.spawns['Spawn1'].energy < Game.spawns['Spawn1'].energyCapacity) { //на спавн
+                    if(creep.transfer(Game.spawns['Spawn1'], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(Game.spawns['Spawn1']);
+                    }
+                }
+                //на extensions 
+                if (extensions_mass.length > 0 && creep.carry.energy > 0 && extensions_mass[0].energy < extensions_mass[0].energyCapacity) {
+                    const range_1_str = creep.pos.findInRange(FIND_MY_STRUCTURES, 1);
+                    if  (range_1_str) {
+                        for (var y = 0; y < range_1_str.length;y++) {
+                            if (range_1_str[y].structureType == STRUCTURE_EXTENSION && range_1_str[y].energy < range_1_str[y].energyCapacity) {
+                                creep.transfer(range_1_str[y], RESOURCE_ENERGY);
+                            }
+                        }
+                    }
+                    const target_near_ext = creep.pos.findClosestByRange(FIND_STRUCTURES,
+                        {filter: {structureType: STRUCTURE_EXTENSION}});
+                    if(target_near_ext && target_near_ext.store < target_near_ext.storeCapacity) {
+                            if(creep.transfer(target_near_ext) == ERR_NOT_IN_RANGE) {
+                                creep.moveTo(target_near_ext);
+                            } 
+                    } else {
+                        if(creep.transfer(extensions_mass[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                            creep.moveTo(extensions_mass[0]);
+                        }
+                    }
+                }
+            } else if (creep.carry.energy < creep.carryCapacity) {
+                const target_near_cont = creep.pos.findClosestByRange(FIND_STRUCTURES,
+                    {filter: {structureType: STRUCTURE_CONTAINER}});
+                if (my_storage && my_storage[0].store[RESOURCE_ENERGY] > (creep.carryCapacity - creep.carry.energy)) {
+                    if(creep.withdraw(my_storage[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(my_storage[0]);
+                    } 
+                } else if (target_near_cont && target_near_cont.store[RESOURCE_ENERGY] > creep.carryCapacity) {
+                    if(creep.withdraw(target_near_cont, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(target_near_cont);
+                    } 
+                } else {
+                    if(creep.withdraw(container_mass[container_mass.length - 1], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(container_mass[container_mass.length -1]);
+                    }
+                }
+            } else if (towers_mass.length > 0 && creep.carry.energy == creep.carryCapacity && towers_mass[0].energy < towers_mass[0].energyCapacity) {
+                if(creep.transfer(towers_mass[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(towers_mass[0]);
+                }
+            } else {
+                creep.moveTo(Game.spawns['Spawn1']);
+            } //конец помощников
+            //переносчик
+        } else if (creep.name.indexOf('Carryer') == 0) {
+            // console.log('find_mins: '+find_mins);
+            // console.log('dropped_res: '+dropped_res);
+            if (Game.time % 3 == 0) {
+                const target_drop = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES);
+                const target_tomb = creep.pos.findClosestByRange(FIND_TOMBSTONES, {
+                     filter: object => object.store['energy'] > 20 
+                });
+                //сделать проверку на время 
+                //перебор всех минералов
+                if (target_tomb) {
+                    for (var m = 0; m < known_mins.length; m++) {
+                        if (target_tomb.store[known_mins[m]] > 0) {
+                            find_mins = true;
+                            found_min = known_mins[m];
+                            // Game.notify('обнаружен минерал :'+ found_min, 2);
+                            console.log('обнаружен минерал: '+ found_min+' '+target_tomb.store[known_mins[m]]);
+                            break;
+                        } else {
+                            find_mins = false;
+                            found_min = '';
+                            // console.log(known_mins[m]+' не найдено...');
+                        }
+                    } 
+                }
+                
+                
+                const target_tomb_min = creep.pos.findClosestByRange(FIND_TOMBSTONES, {
+                     filter: object => object.store[RESOURCE_GHODIUM_OXIDE] > 0 
+                });
+                
+                if (target_drop && target_drop.amount > 20) {
+                    dropped_res = true;
+                } else {dropped_res = false}
+                if (target_tomb && target_tomb.store[RESOURCE_ENERGY] > 20) {
+                    tombs = true; 
+                } else {tombs = false}
+            } 
+            if ((dropped_res == true || tombs == true) && creep.carry.energy < creep.carryCapacity ) {
+                const target_drop = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES);
+                const target_tomb = creep.pos.findClosestByRange(FIND_TOMBSTONES, {
+                     filter: object => object.store[RESOURCE_ENERGY] > 20 
+                });
+                const target_tomb_min = creep.pos.findClosestByRange(FIND_TOMBSTONES, {
+                     filter: object => object.store[RESOURCE_GHODIUM_OXIDE] > 0 
+                });
+                if (target_drop && target_drop.amount > 20) {
+                    creep.say('🔅'); 
+                    if(creep.pickup(target_drop) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(target_drop);
+                    } 
+                } /*else if (find_mins && found_min) {
+                    creep.say('⚰️💎'); 
+                    if(creep.withdraw(target_tomb_min, found_min) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(target_tomb_min);
+                    }
+                }*/ else if (target_tomb && target_tomb.store["energy"] > 0) {
+                    creep.say('⚰️'); 
+                    if(creep.withdraw(target_tomb, "energy") == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(target_tomb);
+                    }
+                }
+            } else if (creep.carry.energy > 0) { //куда тащить, если несет
+                if (my_storage) {
+                    creep.say('🚛'); 
+                    if(creep.transfer(my_storage[0], "energy") == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(my_storage[0]);
+                    }
+                }
+            } else {
+                find_mins = false;
+                creep.say('⏲'); 
+                creep.moveTo(support_spot_x, support_spot_y);
+            }
+            
+        }   
+                
+            
+        //конец переносчиков
+        //проверка войны
+        if (under_attack && (creep.memory.role == 'miner' || creep.memory.role == 'upgrader' || creep.memory.role == 'fixer')) {
+            creep.moveTo(support_spot_x, support_spot_y);
+            creep.say('❗');
+        }//проверка войны end
+    } //конец всех крипов
+    //башня
+if (towers_mass.length > 0 && towers_mass[0].energy > 500 && under_attack == false && damaged_creep == false) {
+    const targets = towers_mass[0].room.find(FIND_STRUCTURES, {
+        filter: object => object.hitsMax > 5000 && object.hits <22000 && object.hits < object.hitsMax /*&& object.hitsMax < 300000000*/
+    });
+    targets.sort((a,b) => a.hits - b.hits);
+    if(targets.length > 0 && towers_mass[0].energy > 500) {
+        towers_mass[0].repair(targets[0]);
+        // console.log(targets_rep[0].pos);
+    }
+} else if (damaged_creep == true) {
+    const target = towers_mass[0].pos.findClosestByRange(FIND_MY_CREEPS, {
+    filter: function(object) {
+        return object.hits < object.hitsMax;
+    }
+});
+    if(target) {
+        towers_mass[0].heal(target); 
+    } else {damaged_creep = false}
+} else {
+    const target = Game.getObjectById(spawn_id).pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+    towers_mass[0].attack(target);
+}
+//конец башни
+// console.log(damaged_creep);
+    //спавн если <2 расширений
+    if (extensions_mass.length < 2) {
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 300 && miner_count < miner_max_count && Game.spawns['Spawn1'].spawning == null){  
+            var temp_name = createname('Miner');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, CARRY, CARRY, MOVE, MOVE], temp_name);
+        } 
+        if  (Game.getObjectById(spawn_id).room.energyAvailable >= 300 && miner_count >= miner_max_count && upgrader_count < upgrader_max_count && Game.spawns['Spawn1'].spawning == null){  
+            var temp_name = createname('Upgrader');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, WORK, CARRY, MOVE], temp_name);
+        } 
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 300 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count < warior_max_number && Game.spawns['Spawn1'].spawning == null){
+            var temp_name = createname('Warior');
+            Game.spawns['Spawn1'].spawnCreep( [TOUGH, ATTACK, ATTACK, ATTACK, MOVE], temp_name);
+        }
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 300 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count >= warior_max_number && fixer_count < fixer_max_number && Game.spawns['Spawn1'].spawning == null) {
+            var temp_name = createname('Fixer');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, WORK, CARRY, MOVE], temp_name);
+        }
+     //спавн если 2-4 расширений    
+    } else if (extensions_mass.length >= 2 && extensions_mass.length < 5) {
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 400 && miner_count < miner_max_count && Game.spawns['Spawn1'].spawning == null){  
+            var temp_name = createname('Miner');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, WORK, CARRY, CARRY, MOVE, MOVE], temp_name);
+        } 
+        if  (Game.getObjectById(spawn_id).room.energyAvailable >= 400 && miner_count >= miner_max_count && upgrader_count < upgrader_max_count && Game.spawns['Spawn1'].spawning == null){  
+            var temp_name = createname('Upgrader');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, WORK, CARRY, CARRY, MOVE, MOVE], temp_name);
+        } 
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 400 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count < warior_max_number && Game.spawns['Spawn1'].spawning == null){
+            var temp_name = createname('Warior');
+            Game.spawns['Spawn1'].spawnCreep( [ TOUGH, TOUGH, TOUGH, ATTACK, ATTACK, ATTACK, MOVE, MOVE], temp_name);
+        }
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 400 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count >= warior_max_number && fixer_count < fixer_max_number && Game.spawns['Spawn1'].spawning == null) {
+            var temp_name = createname('Fixer');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, WORK, CARRY, CARRY, MOVE, MOVE], temp_name);
+        }
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 400 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count >= warior_max_number && fixer_count >= fixer_max_number && helper_count < helper_max_number &&  Game.spawns['Spawn1'].spawning == null) {
+            var temp_name = createname('Helper');
+            Game.spawns['Spawn1'].spawnCreep( [CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE], temp_name);
+        }
+    //спавн если >5 расширений 
+    } else if (extensions_mass.length >= 5 && extensions_mass.length < 10) {
+        // console.log();
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 550 && miner_count < miner_max_count && Game.spawns['Spawn1'].spawning == null){  
+            var temp_name = createname('Miner');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE], temp_name);
+        } 
+        if  (Game.getObjectById(spawn_id).room.energyAvailable >= 550 && miner_count >= miner_max_count && upgrader_count < upgrader_max_count && Game.spawns['Spawn1'].spawning == null){  
+            var temp_name = createname('Upgrader');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, WORK, WORK, CARRY, CARRY, CARRY, MOVE, MOVE], temp_name);
+        } 
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 550 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count < warior_max_number && Game.spawns['Spawn1'].spawning == null){
+            var temp_name = createname('Warior');
+            Game.spawns['Spawn1'].spawnCreep( [ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, MOVE, MOVE, MOVE], temp_name);
+        }
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 550 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count >= warior_max_number && fixer_count < fixer_max_number && Game.spawns['Spawn1'].spawning == null) {
+            var temp_name = createname('Fixer');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, WORK, WORK, CARRY,CARRY, MOVE, MOVE, MOVE], temp_name);
+        }
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 550 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count >= warior_max_number && fixer_count >= fixer_max_number && helper_count < helper_max_number &&  Game.spawns['Spawn1'].spawning == null) {
+            var temp_name = createname('Helper');
+            Game.spawns['Spawn1'].spawnCreep( [CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], temp_name);
+        }
+    } else if (extensions_mass.length >= 10 && extensions_mass.length < 20) {
+        // console.log();
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 800 && miner_count < miner_max_count && Game.spawns['Spawn1'].spawning == null){  
+            var temp_name = createname('Miner');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], temp_name);
+        } 
+        if  (Game.getObjectById(spawn_id).room.energyAvailable >= 800 && miner_count >= miner_max_count && upgrader_count < upgrader_max_count && Game.spawns['Spawn1'].spawning == null){  
+            var temp_name = createname('Upgrader');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], temp_name);
+        } 
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 800 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count < warior_max_number && Game.spawns['Spawn1'].spawning == null){
+            var temp_name = createname('Warior');
+            Game.spawns['Spawn1'].spawnCreep( [ TOUGH, TOUGH, TOUGH, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, MOVE, MOVE, MOVE, MOVE], temp_name);
+        }
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 800 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count >= warior_max_number && fixer_count < fixer_max_number && Game.spawns['Spawn1'].spawning == null) {
+            var temp_name = createname('Fixer');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY,  MOVE, MOVE, MOVE, MOVE], temp_name);
+        }
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 800 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count >= warior_max_number && fixer_count >= fixer_max_number && helper_count < helper_max_number &&  Game.spawns['Spawn1'].spawning == null) {
+            var temp_name = createname('Helper');
+            Game.spawns['Spawn1'].spawnCreep( [CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], temp_name);
+        }
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 400 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count >= warior_max_number && fixer_count >= fixer_max_number && helper_count >= helper_max_number && carryer_count < carryer_max_number &&  Game.spawns['Spawn1'].spawning == null) {
+            var temp_name = createname('Carryer');
+            Game.spawns['Spawn1'].spawnCreep( [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], temp_name);
+        }
+    } else if (extensions_mass.length >= 20) {
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 1300 && miner_count < miner_max_count && Game.spawns['Spawn1'].spawning == null){  
+            var temp_name = createname('Miner');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], temp_name);
+        } 
+        if  (Game.getObjectById(spawn_id).room.energyAvailable >= 1300 && miner_count >= miner_max_count && upgrader_count < upgrader_max_count && Game.spawns['Spawn1'].spawning == null){  
+            var temp_name = createname('Upgrader');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE], temp_name);
+        } 
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 1300 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count < warior_max_number && Game.spawns['Spawn1'].spawning == null){
+            var temp_name = createname('Warior');
+            Game.spawns['Spawn1'].spawnCreep( [ TOUGH, TOUGH, TOUGH, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, MOVE, MOVE, MOVE, MOVE], temp_name);
+        }
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 1300 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count >= warior_max_number && fixer_count < fixer_max_number && Game.spawns['Spawn1'].spawning == null) {
+            var temp_name = createname('Fixer');
+            Game.spawns['Spawn1'].spawnCreep( [WORK, WORK, WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE], temp_name);
+        }
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 1300 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count >= warior_max_number && fixer_count >= fixer_max_number && helper_count < helper_max_number &&  Game.spawns['Spawn1'].spawning == null) {
+            var temp_name = createname('Helper');
+            Game.spawns['Spawn1'].spawnCreep( [CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], temp_name);
+        }
+        if (Game.getObjectById(spawn_id).room.energyAvailable >= 400 && miner_count >= miner_max_count && upgrader_count >= upgrader_max_count && warior_count >= warior_max_number && fixer_count >= fixer_max_number && helper_count >= helper_max_number && carryer_count < carryer_max_number &&  Game.spawns['Spawn1'].spawning == null) {
+            var temp_name = createname('Carryer');
+            Game.spawns['Spawn1'].spawnCreep( [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], temp_name);
+        }
+    }
+//использование памяти start
+    cpu_avg = cpu_avg + Game.cpu.getUsed(); 
+    if (i > 19) {
+        console.log('last 20 ticks cpu_avg usage: '+ (cpu_avg/20).toFixed(2));
+        i = 1;
+        cpu_avg = 0;
+    }
+    i = ++i;
+//использование памяти end
+}
